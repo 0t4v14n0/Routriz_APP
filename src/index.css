@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@theme {
+  /* Aqui você define as cores exatas da marca Routriz! */
+  --color-routriz-blue: #1C2B7A;
+  --color-routriz-red: #DD4B3E;
+  --color-routriz-bg: #E2EAEF;
+  --color-routriz-dark: #000000;
+}
