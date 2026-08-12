@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: 'https://nondualistically-ostensive-luella.ngrok-free.dev',
 });
 
 // Interceptor: Roda antes de qualquer requisição ser enviada

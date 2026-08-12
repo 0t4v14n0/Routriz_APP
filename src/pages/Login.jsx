@@ -63,12 +63,10 @@ export default function Login() {
             
             <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 border-t-4 border-routriz-blue">
                 <div className="text-center mb-8">
-                    <h2 className="text-4xl font-extrabold text-routriz-blue tracking-tight">
-                        Routriz
-                    </h2>
-                    <p className="text-routriz-dark font-medium mt-2">
-                        Sua rota inteligente, sua entrega perfeita
-                    </p>
+
+                    <div className="flex justify-center w-full">
+                        <img src="/Routriz.png" alt="Routriz Logo" className="h-7 h-50 w-50" />
+                    </div>
                 </div>
 
                 {erro && (
