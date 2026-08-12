@@ -5,7 +5,9 @@ import { AuthContext } from '../contexts/AuthContext';
 import { api } from '../services/api';
 
 // Importações do Mapa
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
+
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -17,9 +19,49 @@ const iconePinoMapeado = new L.Icon({
     popupAnchor: [0, -35]
 });
 
+// Criador Dinâmico de Ícones (Gera bolinhas com números)
+const criarIconeNumerado = (numeroDaRota) => {
+    // Se tiver número, fica azul. Se não tiver (pendente), fica cinza com uma caixa.
+    const texto = numeroDaRota ? numeroDaRota : '📦';
+    const corFundo = numeroDaRota ? '#2563EB' : '#6B7280'; // Azul ou Cinza
+
+    return new L.divIcon({
+        className: 'custom-pin', // Remove os estilos padrão do Leaflet
+        html: `<div style="
+            background-color: ${corFundo};
+            color: white;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 900;
+            font-family: sans-serif;
+            font-size: 15px;
+            border: 3px solid white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        ">
+            ${texto}
+        </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16], // Fica exatamente centralizado na rua
+        popupAnchor: [0, -16] // Balãozinho abre um pouco acima da bolinha
+    });
+};
+
+const iconeEntregador = new L.Icon({
+    iconUrl: '/RoutrizICO.ico', 
+    iconSize: [32, 32],      // Tamanho da imagem na tela [largura, altura]
+    iconAnchor: [16, 32],    // A "ponta" do ícone que vai tocar exatamente na rua
+    popupAnchor: [0, -32]    // Distância para o balãozinho "Você está aqui!" não cobrir a imagem
+});
+
 export default function Dashboard() {
     const { usuario, setUsuario } = useContext(AuthContext);
     const navigate = useNavigate();
+
+    const [gpsAoVivo, setGpsAoVivo] = useState(null);
     
     // Estado para controlar a abertura do Menu Hambúrguer
     const [menuAberto, setMenuAberto] = useState(false);
@@ -41,7 +83,10 @@ export default function Dashboard() {
     // Estado para controle do Modal da Lista de Entregas
     const [modalEntregasAberto, setModalEntregasAberto] = useState(false);
 
-    const [rotaGeoJson, setRotaGeoJson] = useState(null);
+    const [rotaGeoJson, setRotaGeoJson] = useState(() => {
+        const rotaSalva = localStorage.getItem('rota_cache');
+        return rotaSalva ? JSON.parse(rotaSalva) : null;
+    });    
     const [carregandoRota, setCarregandoRota] = useState(false);
 
     // Função para Buscar as entregas ativas no Backend
@@ -71,9 +116,7 @@ export default function Dashboard() {
         e.preventDefault();
         setCarregandoLote(true);
         try {
-            const response = await api.post('/api/entregador/encomendas/lote', {
-                textoBruto: textoLote
-            });
+            const response = await api.post('/api/entregador/encomendas/lote', { textoBruto: textoLote });
             alert(`Sucesso! ${response.data.length} pacotes processados.`);
             setTextoLote('');
             setModalLoteAberto(false);
@@ -82,6 +125,85 @@ export default function Dashboard() {
             alert('Erro ao processar lote. Verifique o formato.');
         } finally {
             setCarregandoLote(false);
+        }
+    };
+
+    // Função para Confirmar a Entrega (Dá baixa e aprimora o mapa)
+    const finalizarEntrega = (idPacote) => {
+        const confirmar = window.confirm("Confirmar a entrega deste pacote?");
+        if (!confirmar) return;
+
+        if (!navigator.geolocation) {
+            alert("Seu navegador não suporta GPS.");
+            return;
+        }
+
+        // 1. Pega o GPS real exato da porta do cliente
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            try {
+                // 2. Chama a sua API incrível passando as coordenadas reais
+                await api.patch(`/api/entregador/encomendas/${idPacote}/entregar`, {
+                    latitudeExata: lat,
+                    longitudeExata: lng
+                });
+
+                alert("Entrega confirmada! A Rota será recalculada.");
+                
+                // 3. Atualiza a lista (o pacote entregue vai sumir da tela)
+                await carregarEntregas(); 
+
+                // 4. MÁGICA: Pede pro OSRM recalcular o trajeto com os pacotes que sobraram!
+                // Isso faz a linha azul apagar e desenhar uma nova, menorzinha.
+                calcularRotaOtimizada(); 
+
+                setModalEntregasAberto(false); // Fecha o modal se estiver aberto
+                
+            } catch (error) {
+                console.error("Erro ao finalizar entrega:", error);
+                alert("Erro ao confirmar entrega.");
+            }
+        }, (err) => {
+            alert("Você precisa permitir o GPS para registrar a entrega exata.");
+        });
+    };
+
+    // Coloque isso logo abaixo do seu useEffect do carregarEntregas()
+    useEffect(() => {
+        if (!navigator.geolocation) return;
+
+        // watchPosition fica escutando o GPS do celular continuamente
+        const radar = navigator.geolocation.watchPosition(
+            (pos) => {
+                setGpsAoVivo([pos.coords.latitude, pos.coords.longitude]);
+            },
+            (erro) => console.error("Erro no GPS ao vivo:", erro),
+            {
+                enableHighAccuracy: true, // Força a usar o chip de GPS (não o Wi-Fi)
+                maximumAge: 0,
+                timeout: 5000
+            }
+        );
+
+        // Desliga o radar se o entregador fechar o app
+        return () => navigator.geolocation.clearWatch(radar);
+    }, []);
+
+    // Função para remover um pacote
+    const removerPacote = async (idPacote) => {
+        // Confirmação de segurança para o usuário não clicar sem querer
+        const confirmar = window.confirm("Tem certeza que deseja remover este pacote da sua rota?");
+        if (!confirmar) return;
+
+        try {
+            await api.delete(`/api/entregador/encomendas/${idPacote}`);
+            // Recarrega a lista do backend, o que fará o pino sumir do mapa magicamente!
+            carregarEntregas(); 
+        } catch (error) {
+            alert("Erro ao remover pacote.");
+            console.error(error);
         }
     };
 
@@ -99,15 +221,18 @@ export default function Dashboard() {
             const lng = pos.coords.longitude;
 
             try {
-                const response = await api.post(`/api/entregador/rotas/otimizar?latitudeAtual=${lat}&longitudeAtual=${lng}`);
-                
-                // O axios as vezes converte JSON automaticamente, as vezes não. Isso garante a conversão:
-                const geoJsonObj = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-                
-                setRotaGeoJson(geoJsonObj);
-                carregarEntregas(); // Recarrega a lista para mostrar a "# Ordem" atualizada nas tags verdes
-                
-                alert("Rota calculada com sucesso!");
+                const response = await api.post(`/api/entregador/rotas/otimizar?latitudeAtual=${lat}&longitudeAtual=${lng}`)
+                    .then((response) => {
+                        const geoJsonObj = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                        
+                        setRotaGeoJson(geoJsonObj);
+                        
+                        // 👇 LINHA NOVA: Salva o desenho da linha no navegador do entregador!
+                        localStorage.setItem('rota_cache', JSON.stringify(geoJsonObj)); 
+                        
+                        carregarEntregas(); 
+                        alert("Rota calculada com sucesso!");
+                    })
             } catch (error) {
                 console.error("Erro ao otimizar:", error);
                 alert(error.response?.data?.message || "Erro ao calcular a rota. Você tem pacotes pendentes?");
@@ -271,17 +396,26 @@ export default function Dashboard() {
                 </div>
 
                 {/* ÁREA DO MAPA (REACT-LEAFLET) */}
-                <div className="flex-1 bg-white rounded-2xl border border-gray-200 overflow-hidden min-h-[400px] shadow-sm relative z-0">
+                <div className="flex-1 bg-white rounded-2xl border border-gray-200 overflow-hidden min-h-[500px] shadow-sm relative z-0">
                     <MapContainer 
                         center={centroDoMapa} 
                         zoom={14} 
-                        style={{ height: '400px', width: '100%', zIndex: 0 }}     
+                        style={{ height: '500px', width: '100%', zIndex: 0 }}     
 
                     >
                         <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution='&copy; OpenStreetMap'
                         />
+
+                        {gpsAoVivo && (
+                            <Marker 
+                                position={gpsAoVivo} 
+                                icon={iconeEntregador} 
+                            >
+                                <Popup>Você está aqui!</Popup>
+                            </Marker>
+                        )}
 
                         {rotaGeoJson && (
                             <GeoJSON 
@@ -290,22 +424,32 @@ export default function Dashboard() {
                             />
                         )}
                         
-                        {entregas.map((enc) => (
-                            <Marker 
-                                key={enc.id} 
-                                position={[enc.latitude, enc.longitude]} 
-                                icon={iconePinoMapeado}
-                            >
-                                <Popup>
-                                    <div className="font-sans text-sm">
+                    {entregas.map((enc) => (
+                        <Marker 
+                            key={enc.id} 
+                            position={[enc.latitude, enc.longitude]} 
+                            // 👇 A MÁGICA ACONTECE AQUI:
+                            icon={criarIconeNumerado(enc.ordemRota)}
+                        >
+                            <Popup>
+                                <div className="font-sans text-sm flex flex-col gap-2">
+                                    <div>
                                         <p className="font-bold mb-1">
                                             {enc.ordemRota ? `Parada #${enc.ordemRota}` : '📍 Pacote'}
                                         </p>
-                                        <p className="text-gray-600">{enc.textoEndereco}</p>
+                                        <p className="text-gray-600 leading-tight">{enc.textoEndereco}</p>
                                     </div>
-                                </Popup>
-                            </Marker>
-                        ))}
+                                    
+                                    <button 
+                                        onClick={() => finalizarEntrega(enc.id)}
+                                        className="bg-green-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-green-600 w-full text-center shadow-sm"
+                                    >
+                                        ✅ Confirmar Entrega
+                                    </button>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    ))}
                     </MapContainer>
                 </div>
 
@@ -421,7 +565,10 @@ export default function Dashboard() {
                                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{enc.status}</p>
                                         <p className="text-sm font-semibold text-gray-700 pr-8">{enc.textoEndereco}</p>
                                         
-                                        <button className="mt-2 text-xs font-bold text-red-500 self-end hover:underline">
+                                        <button 
+                                            onClick={() => removerPacote(enc.id)}
+                                            className="mt-2 text-xs font-bold text-red-500 self-end hover:underline cursor-pointer"
+                                        >
                                             Remover Pacote
                                         </button>
                                     </li>

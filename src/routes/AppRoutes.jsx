@@ -10,6 +10,7 @@ import Pagamento from '../pages/Pagamento';
 import VerificarEmail from '../pages/VerificarEmail'; // <-- IMPORTAÇÃO AQUI
 import EsqueciSenha from '../pages/EsqueciSenha';
 import RedefinirSenha from '../pages/RedefinirSenha';
+import LandingPage from "../pages/LandingPage";
 
 export function AppRoutes() {
     const { usuario } = useContext(AuthContext);
@@ -26,6 +27,7 @@ export function AppRoutes() {
             {/* ======================= */}
             {/* ROTAS PÚBLICAS (LIVRES) */}
             {/* ======================= */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={usuario ? <Navigate to="/dashboard" /> : <Login />} />
             <Route path="/cadastro" element={usuario ? <Navigate to="/dashboard" /> : <Cadastro />} />
             <Route path="/esqueci-senha" element={usuario ? <Navigate to="/dashboard" /> : <EsqueciSenha />} />
