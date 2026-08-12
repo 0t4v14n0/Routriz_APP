@@ -20,6 +20,7 @@ export default function LandingPage() {
                         >
                             Já tenho conta
                         </Link>
+
                     </nav>
                 </div>
             </header>
@@ -50,6 +51,13 @@ export default function LandingPage() {
                             className="bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg py-4 px-8 rounded-full shadow-xl hover:scale-105 transition-all transform w-full sm:w-auto"
                         >
                             Testar 7 Dias Grátis
+                        </Link>
+
+                        <Link 
+                            to="/apresentacao" 
+                            className="bg-white/20 hover:bg-white/30 border border-white/50 text-white font-bold text-lg py-4 px-8 rounded-full shadow-lg transition-all transform w-full sm:w-auto backdrop-blur-sm"
+                        >
+                            Como Funciona?
                         </Link>
                     </div>
                     <p className="text-sm text-blue-200 mt-2 font-medium drop-shadow">Sem compromisso. Cancele quando quiser.</p>
