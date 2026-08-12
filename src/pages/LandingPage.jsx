@@ -149,11 +149,28 @@ export default function LandingPage() {
             {/* FOOTER */}
             <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-auto">
                 <div className="max-w-6xl mx-auto px-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                    
                     <p>&copy; {new Date().getFullYear()} Roteiriza. Todos os direitos reservados.</p>
-                    <div className="flex gap-4">
-                        <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
-                        <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+                    
+                    <div className="flex items-center gap-6">
+                        {/* Seu link pessoal com ícone de código */}
+                        <a 
+                            href="https://www.otaviano.dev.br/" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                            title="Desenvolvido por Otaviano"
+                        >
+                            <img src="/icoja.png" alt="Ícone do Desenvolvedor" />
+                            <span className="hidden sm:inline">otaviano.dev.br</span>
+                        </a>
+
+                        <div className="flex gap-4">
+                            <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
+                            <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+                        </div>
                     </div>
+
                 </div>
             </footer>
         </div>
