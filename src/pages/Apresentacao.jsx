@@ -1,6 +1,7 @@
 // src/pages/Apresentacao.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import routrizNAV from '/routrizNAV.png';
 
 export default function Apresentacao() {
     return (
@@ -10,7 +11,9 @@ export default function Apresentacao() {
             <header className="bg-routriz-blue text-white p-5 rounded-b-3xl shadow-lg sticky top-0 z-50">
                 <div className="max-w-xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white text-routriz-blue font-extrabold text-xl px-3 py-1 rounded-lg">R</div>
+                        <div className="flex items-center gap-2">
+                            <img src={routrizNAV} alt="Roteiriza Logo" className="h-12 w-auto" />
+                        </div>
                         <span className="font-extrabold text-xl tracking-tight">Guia Rápido</span>
                     </div>
                     <Link to="/" className="text-white text-sm font-bold bg-white/20 px-4 py-1.5 rounded-full hover:bg-white/30">
@@ -21,14 +24,28 @@ export default function Apresentacao() {
 
             <main className="max-w-xl mx-auto p-5 mt-4 flex flex-col gap-10">
                 
-                {/* INTRODUÇÃO */}
-                <div className="text-center">
-                    <h1 className="text-3xl font-extrabold text-gray-900 mb-3">
-                        Bem-vindo ao Routriz 🚀
-                    </h1>
-                    <p className="text-gray-600 font-medium text-lg">
-                        O aplicativo que transforma horas de trabalho em minutos. Veja como é fácil usar:
-                    </p>
+                {/* INTRODUÇÃO E VÍDEO DO YOUTUBE */}
+                <div className="text-center flex flex-col gap-6">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
+                            Bem-vindo ao Routriz 🚀
+                        </h1>
+                        <p className="text-gray-600 font-medium">
+                            Assista ao vídeo abaixo e veja como o aplicativo funciona na prática:
+                        </p>
+                    </div>
+
+                    {/* Container do Vídeo (Proporção 16:9 Perfeita para Celular) */}
+                    <div className="relative w-full overflow-hidden rounded-2xl shadow-xl bg-black border-2 border-gray-200" style={{ paddingTop: '56.25%' }}>
+                        <iframe 
+                            className="absolute top-0 left-0 w-full h-full"
+                            src="https://www.youtube.com/embed/MHTJL9b_bcQ" 
+                            title="Demonstração do Routriz" 
+                            frameBorder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowFullScreen
+                        ></iframe>
+                    </div>
                 </div>
 
                 {/* PASSO 1: Adicionar Pacotes */}
@@ -55,12 +72,6 @@ export default function Apresentacao() {
                             </div>
                         </div>
                     </div>
-                    
-                    {/* TROQUE ESTE SRC PELA SUA FOTO DO APP DEPOIS */}
-                    <div className="mt-6 bg-gray-200 rounded-xl h-48 w-full flex items-center justify-center overflow-hidden border border-gray-200 shadow-inner">
-                        <span className="text-gray-400 font-bold text-sm">📸 Coloque um Print da Tela da Câmera aqui</span>
-                        {/* Exemplo real: <img src="/print-camera.png" className="w-full h-full object-cover" /> */}
-                    </div>
                 </section>
 
                 {/* PASSO 2: Rota Mágica */}
@@ -76,11 +87,6 @@ export default function Apresentacao() {
                         <li>O sistema desenha uma linha azul nas ruas.</li>
                         <li>As bolinhas cinzas viram números azuis (<span className="bg-routriz-blue text-white px-1.5 py-0.5 rounded-full text-xs mx-1">1</span>, <span className="bg-routriz-blue text-white px-1.5 py-0.5 rounded-full text-xs mx-1">2</span>, <span className="bg-routriz-blue text-white px-1.5 py-0.5 rounded-full text-xs mx-1">3</span>) mostrando a ordem exata para economizar gasolina.</li>
                     </ul>
-
-                    {/* TROQUE ESTE SRC PELA SUA FOTO DO APP DEPOIS */}
-                    <div className="mt-4 bg-gray-200 rounded-xl h-64 w-full flex items-center justify-center overflow-hidden border border-gray-200 shadow-inner">
-                        <span className="text-gray-400 font-bold text-sm px-4 text-center">🗺️ Coloque um Print do Mapa com a Linha Azul aqui</span>
-                    </div>
                 </section>
 
                 {/* PASSO 3: Confirmar Entrega */}
