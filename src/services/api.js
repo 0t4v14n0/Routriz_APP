@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'https://nondualistically-ostensive-luella.ngrok-free.dev ', 
+    baseURL: 'https://nondualistically-ostensive-luella.ngrok-free.dev', 
     headers: {
         'ngrok-skip-browser-warning': 'true', // Tem que ter isso!
         'Content-Type': 'application/json'
