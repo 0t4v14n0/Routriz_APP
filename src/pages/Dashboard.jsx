@@ -5,9 +5,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { api } from '../services/api';
 
 // Importações do Mapa
-
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
-
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -62,25 +60,15 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     const [gpsAoVivo, setGpsAoVivo] = useState(null);
-    
-    // Estado para controlar a abertura do Menu Hambúrguer
     const [menuAberto, setMenuAberto] = useState(false);
-
-    // Estado para guardar a lista de entregas do backend
     const [entregas, setEntregas] = useState([]);
-
-    // Estados para controle do Modal de Lote
     const [modalLoteAberto, setModalLoteAberto] = useState(false);
     const [textoLote, setTextoLote] = useState('');
     const [carregandoLote, setCarregandoLote] = useState(false);
-
-    // Estados para controle do Modal da Câmera / OCR
     const [modalCameraAberto, setModalCameraAberto] = useState(false);
     const [carregandoCamera, setCarregandoCamera] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
-
-    // Estado para controle do Modal da Lista de Entregas
     const [modalEntregasAberto, setModalEntregasAberto] = useState(false);
 
     const [rotaGeoJson, setRotaGeoJson] = useState(() => {
@@ -88,6 +76,20 @@ export default function Dashboard() {
         return rotaSalva ? JSON.parse(rotaSalva) : null;
     });    
     const [carregandoRota, setCarregandoRota] = useState(false);
+
+    // =========================================================================
+    // 🚨 VARIÁVEIS MOVIDAS PARA O TOPO (Antes dos useEffects!)
+    // =========================================================================
+    const assinatura = usuario?.dataAssinatura;
+    const diasRestantes = assinatura?.dataVencimento;
+    const isTrial = assinatura?.status === 'TRIAL';
+
+    const isBloqueado = !assinatura || 
+                        assinatura.status === 'INATIVA' || 
+                        assinatura.status === 'PENDENTE' || 
+                        assinatura.status === 'VENCIDA' || 
+                        assinatura.status === 'EXPIRADO';
+    // =========================================================================
 
     // Função para Buscar as entregas ativas no Backend
     const carregarEntregas = async () => {
@@ -99,10 +101,12 @@ export default function Dashboard() {
         }
     };
 
-    // Buscar entregas assim que a página carregar
+    // Buscar entregas assim que a página carregar (SE NÃO ESTIVER BLOQUEADO)
     useEffect(() => {
-        carregarEntregas();
-    }, []);
+        if (!isBloqueado) {
+            carregarEntregas();
+        }
+    }, [isBloqueado]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -128,7 +132,7 @@ export default function Dashboard() {
         }
     };
 
-    // Função para Confirmar a Entrega (Dá baixa e aprimora o mapa)
+    // Função para Confirmar a Entrega
     const finalizarEntrega = (idPacote) => {
         const confirmar = window.confirm("Confirmar a entrega deste pacote?");
         if (!confirmar) return;
@@ -138,28 +142,20 @@ export default function Dashboard() {
             return;
         }
 
-        // 1. Pega o GPS real exato da porta do cliente
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
 
             try {
-                // 2. Chama a sua API incrível passando as coordenadas reais
                 await api.patch(`/api/entregador/encomendas/${idPacote}/entregar`, {
                     latitudeExata: lat,
                     longitudeExata: lng
                 });
 
                 alert("Entrega confirmada! A Rota será recalculada.");
-                
-                // 3. Atualiza a lista (o pacote entregue vai sumir da tela)
                 await carregarEntregas(); 
-
-                // 4. MÁGICA: Pede pro OSRM recalcular o trajeto com os pacotes que sobraram!
-                // Isso faz a linha azul apagar e desenhar uma nova, menorzinha.
                 calcularRotaOtimizada(); 
-
-                setModalEntregasAberto(false); // Fecha o modal se estiver aberto
+                setModalEntregasAberto(false); 
                 
             } catch (error) {
                 console.error("Erro ao finalizar entrega:", error);
@@ -170,36 +166,28 @@ export default function Dashboard() {
         });
     };
 
-    // Coloque isso logo abaixo do seu useEffect do carregarEntregas()
+    // Ligar o GPS em tempo real (SE NÃO ESTIVER BLOQUEADO)
     useEffect(() => {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation || isBloqueado) return;
 
-        // watchPosition fica escutando o GPS do celular continuamente
         const radar = navigator.geolocation.watchPosition(
             (pos) => {
                 setGpsAoVivo([pos.coords.latitude, pos.coords.longitude]);
             },
             (erro) => console.error("Erro no GPS ao vivo:", erro),
-            {
-                enableHighAccuracy: true, // Força a usar o chip de GPS (não o Wi-Fi)
-                maximumAge: 0,
-                timeout: 5000
-            }
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
         );
 
-        // Desliga o radar se o entregador fechar o app
         return () => navigator.geolocation.clearWatch(radar);
-    }, []);
+    }, [isBloqueado]);
 
     // Função para remover um pacote
     const removerPacote = async (idPacote) => {
-        // Confirmação de segurança para o usuário não clicar sem querer
         const confirmar = window.confirm("Tem certeza que deseja remover este pacote da sua rota?");
         if (!confirmar) return;
 
         try {
             await api.delete(`/api/entregador/encomendas/${idPacote}`);
-            // Recarrega a lista do backend, o que fará o pino sumir do mapa magicamente!
             carregarEntregas(); 
         } catch (error) {
             alert("Erro ao remover pacote.");
@@ -207,7 +195,7 @@ export default function Dashboard() {
         }
     };
 
-    // Função para chamar o OSRM e desenhar a rota nas ruas
+    // Função para chamar o OSRM e desenhar a rota
     const calcularRotaOtimizada = () => {
         if (!navigator.geolocation) {
             alert("Seu navegador não suporta GPS.");
@@ -224,12 +212,8 @@ export default function Dashboard() {
                 const response = await api.post(`/api/entregador/rotas/otimizar?latitudeAtual=${lat}&longitudeAtual=${lng}`)
                     .then((response) => {
                         const geoJsonObj = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-                        
                         setRotaGeoJson(geoJsonObj);
-                        
-                        // 👇 LINHA NOVA: Salva o desenho da linha no navegador do entregador!
                         localStorage.setItem('rota_cache', JSON.stringify(geoJsonObj)); 
-                        
                         carregarEntregas(); 
                         alert("Rota calculada com sucesso!");
                     })
@@ -291,7 +275,7 @@ export default function Dashboard() {
             });
             alert(response.data);
             fecharCamera();
-            carregarEntregas(); // Atualiza o mapa na hora
+            carregarEntregas(); 
         } catch (error) {
             alert('Erro ao ler a etiqueta com a IA.');
         } finally {
@@ -299,10 +283,42 @@ export default function Dashboard() {
         }
     };
 
-
-    const assinatura = usuario?.dataAssinatura;
-    const diasRestantes = assinatura?.dataVencimento;
-    const isTrial = assinatura?.status === 'TRIAL';
+    // =========================================================================
+    // TELA DE BLOQUEIO SE A ASSINATURA ESTIVER PENDENTE, VENCIDA OU INATIVA
+    // =========================================================================
+    if (usuario && isBloqueado) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+                <img src="/RoutrizAzul.png" alt="Routriz Logo" className="h-30 w-auto mb-8" />
+                
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full">
+                    <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4">
+                        🔒
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-gray-800 mb-2">Acesso Bloqueado</h2>
+                    <p className="text-gray-500 mb-6 font-medium text-sm">
+                        Sua assinatura {assinatura?.status === 'PENDENTE' ? 'está aguardando pagamento' : 'expirou ou foi cancelada'}. 
+                        Para continuar usando o app, assine o plano PRO.
+                    </p>
+                    
+                    <button 
+                        onClick={() => navigate('/assinar')}
+                        className="bg-routriz-blue w-full hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all cursor-pointer"
+                    >
+                        Assinar Routriz PRO
+                    </button>
+                    
+                    <button 
+                        onClick={handleLogout}
+                        className="mt-4 text-gray-400 font-bold text-sm hover:text-gray-600 underline cursor-pointer"
+                    >
+                        Sair do aplicativo
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    // =========================================================================
 
     // Posição padrão do mapa (Se não tiver entregas, centraliza em Belo Jardim)
     const centroDoMapa = entregas.length > 0 
@@ -364,6 +380,13 @@ export default function Dashboard() {
                             {entregas.length}
                         </span>
                     </button>
+
+                    <button 
+                        onClick={() => { navigate('/assinar'); setMenuAberto(false); }}
+                        className="text-left font-semibold text-gray-700 hover:text-routriz-blue py-2 px-3 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer mt-4 border-t pt-4"
+                    >
+                        💳 Minha Assinatura
+                    </button>
                 </div>
             )}
 
@@ -380,7 +403,10 @@ export default function Dashboard() {
                                 Restam <span className="font-bold text-amber-600">{diasRestantes} dias</span> para o fim do seu trial.
                             </p>
                         </div>
-                        <button className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-all cursor-pointer">
+                        <button 
+                            onClick={() => navigate('/assinar')}
+                            className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-all cursor-pointer"
+                        >
                             Assinar Agora
                         </button>
                     </div>
@@ -400,7 +426,7 @@ export default function Dashboard() {
                     <MapContainer 
                         center={centroDoMapa} 
                         zoom={14} 
-                        style={{ height: '500px', width: '100%', zIndex: 0 }}     
+                        style={{ height: '500px', width: '100%', zIndex: 0 }}    
 
                     >
                         <TileLayer
@@ -417,18 +443,39 @@ export default function Dashboard() {
                             </Marker>
                         )}
 
-                        {rotaGeoJson && (
-                            <GeoJSON 
-                                data={rotaGeoJson} 
-                                style={{ color: '#2563EB', weight: 5, opacity: 0.8 }} 
-                            />
+                        {/* RENDERIZAÇÃO INTELIGENTE DA ROTA (Próximo destino vs Restante) */}
+                        {rotaGeoJson && rotaGeoJson.type === "FeatureCollection" ? (
+                            rotaGeoJson.features.map((feature, index) => (
+                                <GeoJSON 
+                                    // A key com entregas.length garante que o Leaflet redesenhe a linha corretamente ao dar baixa num pacote
+                                    key={`rota-${index}-${entregas.length}`} 
+                                    data={feature} 
+                                    style={{ 
+                                        // index === 0 é a rota do motorista até a PRIMEIRA entrega pendente
+                                        color: index === 0 ? '#1D4ED8' : '#93C5FD', // Azul forte vs Azul claro
+                                        weight: index === 0 ? 6 : 4, // Linha mais grossa no destino atual
+                                        opacity: index === 0 ? 1 : 0.7,
+                                        dashArray: index === 0 ? '' : '10, 10', // Efeito tracejado (Waze-style) nos próximos destinos!
+                                        lineCap: 'round',
+                                        lineJoin: 'round'
+                                    }} 
+                                />
+                            ))
+                        ) : (
+                            // Fallback de segurança: se o backend mandar tudo como uma linha única em vez de trechos separados
+                            rotaGeoJson && (
+                                <GeoJSON 
+                                    key={`rota-unica-${entregas.length}`}
+                                    data={rotaGeoJson} 
+                                    style={{ color: '#1D4ED8', weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round' }} 
+                                />
+                            )
                         )}
                         
                     {entregas.map((enc) => (
                         <Marker 
                             key={enc.id} 
                             position={[enc.latitude, enc.longitude]} 
-                            // 👇 A MÁGICA ACONTECE AQUI:
                             icon={criarIconeNumerado(enc.ordemRota)}
                         >
                             <Popup>
@@ -442,7 +489,7 @@ export default function Dashboard() {
                                     
                                     <button 
                                         onClick={() => finalizarEntrega(enc.id)}
-                                        className="bg-green-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-green-600 w-full text-center shadow-sm"
+                                        className="bg-green-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-green-600 w-full text-center shadow-sm cursor-pointer"
                                     >
                                         ✅ Confirmar Entrega
                                     </button>

@@ -12,6 +12,7 @@ import EsqueciSenha from '../pages/EsqueciSenha';
 import RedefinirSenha from '../pages/RedefinirSenha';
 import LandingPage from "../pages/LandingPage";
 import Apresentacao from "../pages/Apresentacao";
+import AssinaturaPage from '../pages/AssinaturaPage';
 
 export function AppRoutes() {
     const { usuario } = useContext(AuthContext);
@@ -42,6 +43,7 @@ export function AppRoutes() {
             {/* ROTAS PRIVADAS (TRAVADAS) */}
             {/* ======================= */}
             <Route path="/pagamento" element={usuario ? <Pagamento /> : <Navigate to="/login" />} />
+            <Route path="/assinar" element={<AssinaturaPage />} />
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             
             {/* ROTA CORINGA (Se digitar URL que não existe, vai pro Dashboard) */}

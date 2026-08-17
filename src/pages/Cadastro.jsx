@@ -15,7 +15,7 @@ export default function Cadastro() {
         setStatus({ tipo: '', msg: '' });
 
         try {
-            // Ajuste a rota '/api/public/entregadores/cadastrar' conforme o seu Spring Boot
+            // Ajuste a rota '/api/public/cadastrar' conforme o seu Spring Boot
             await api.post('/api/public/cadastrar', formData);
             
             setStatus({ tipo: 'sucesso', msg: 'Conta criada! Você ganhou o acesso Free Tier.' });
