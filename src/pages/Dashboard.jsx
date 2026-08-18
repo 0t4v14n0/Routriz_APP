@@ -5,9 +5,10 @@ import { AuthContext } from '../contexts/AuthContext';
 import { api } from '../services/api';
 
 // Importações do Mapa
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
 
 // Corrigindo o ícone padrão do Leaflet no React (Usando um ícone externo bonitinho)
 const iconePinoMapeado = new L.Icon({
@@ -283,6 +284,37 @@ export default function Dashboard() {
         }
     };
 
+    function AtualizadorDeCamera({ centro, entregas }) {
+        const map = useMap(); // Acessa a instância do mapa do Leaflet
+
+        useEffect(() => {
+            // Se houver entregas, ajusta o mapa para mostrar todas na tela
+            if (entregas && entregas.length > 0) {
+                // Cria os "limites" (bounds) baseados em todas as coordenadas das entregas
+                const bounds = L.latLngBounds(entregas.map(enc => [enc.latitude, enc.longitude]));
+                
+                // Opcional: Adicionar a posição atual do entregador se disponível
+                // (Assumindo que você passaria gpsAoVivo como prop também)
+
+                // Faz o mapa dar um "zoom out/in" suave para enquadrar todos os pontos
+                map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 }); 
+            } else if (centro) {
+                // Fallback para centralizar se não houver bounds
+                map.flyTo(centro, 14, { duration: 1.5 });
+            }
+        }, [centro, entregas, map]); // Re-executa sempre que 'entregas' ou 'centro' mudarem
+
+        return null; // Não renderiza nada visualmente
+    }
+
+    const limparRota = () => {
+        const confirmar = window.confirm("Deseja apagar o traçado da rota atual do mapa?");
+        if (confirmar) {
+            setRotaGeoJson(null); // Tira a linha do mapa
+            localStorage.removeItem('rota_cache'); // Apaga do cache para não voltar no F5
+        }
+    };
+
     // =========================================================================
     // TELA DE BLOQUEIO SE A ASSINATURA ESTIVER PENDENTE, VENCIDA OU INATIVA
     // =========================================================================
@@ -434,6 +466,9 @@ export default function Dashboard() {
                             attribution='&copy; OpenStreetMap'
                         />
 
+                        {/* 👇 INSERINDO O CONTROLADOR DE CÂMERA AQUI 👇 */}
+                        <AtualizadorDeCamera centro={centroDoMapa} entregas={entregas} />
+
                         {gpsAoVivo && (
                             <Marker 
                                 position={gpsAoVivo} 
@@ -499,6 +534,15 @@ export default function Dashboard() {
                     ))}
                     </MapContainer>
                 </div>
+
+                {rotaGeoJson && (
+                        <button 
+                            onClick={limparRota} 
+                            className="bg-white border-2 border-red-500 text-red-500 font-bold text-sm py-3 rounded-xl shadow-sm hover:bg-red-50 transition-all w-full cursor-pointer"
+                        >
+                            🗑️ Limpar Traçado da Rota
+                        </button>
+                )}
 
                 <button 
                     onClick={calcularRotaOtimizada} 
