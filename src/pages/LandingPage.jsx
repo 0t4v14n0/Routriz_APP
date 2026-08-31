@@ -47,7 +47,7 @@ export default function LandingPage() {
                     
                     <div className="mt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
                         <Link 
-                            to="/login" 
+                            to="/cadastro" 
                             className="bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg py-4 px-8 rounded-full shadow-xl hover:scale-105 transition-all transform w-full sm:w-auto"
                         >
                             Testar 7 Dias Grátis
