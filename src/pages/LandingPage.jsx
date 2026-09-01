@@ -1,9 +1,33 @@
-// src/pages/LandingPage.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import routrizNAV from '/logoLetraAzul.png';
+import { api } from '../services/api'; // Importando sua API configurada
 
 export default function LandingPage() {
+    // 1. Criamos os estados para controlar a saúde do backend e os planos
+    const [isBackendOnline, setIsBackendOnline] = useState(true);
+    const [planos, setPlanos] = useState([]);
+
+    // 2. Configuração do botão do WhatsApp (Coloque seu DDD 81 e número aqui)
+    const numeroWhatsApp = "5581993335045"; 
+    const msgWhatsApp = encodeURI("Olá! Gostaria de testar o Routriz.");
+    const linkWhats = `https://wa.me/${numeroWhatsApp}?text=${msgWhatsApp}`;
+
+    // 3. Ao abrir a página, o React tenta bater no endpoint de planos
+    useEffect(() => {
+        const verificarBackend = async () => {
+            try {
+                const response = await api.get('/api/public/planos');
+                setPlanos(response.data);
+                setIsBackendOnline(true); // Se respondeu 200 OK, mantém os botões do sistema
+            } catch (error) {
+                console.error("Backend offline ou erro de conexão:", error);
+                setIsBackendOnline(false); // Se deu BAD/Erro, muda a tela para o modo WhatsApp
+            }
+        };
+        verificarBackend();
+    }, []);
+
     return (
         <div className="min-h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
             
@@ -11,27 +35,27 @@ export default function LandingPage() {
             <header className="bg-white shadow-sm sticky top-0 z-50">
                 <div className="max-w-6xl mx-auto px-5 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <img src={routrizNAV} alt="Roteiriza Logo" className="h-12 w-auto" />
+                        <img src={routrizNAV} alt="Routriz Logo" className="h-12 w-auto" />
                     </div>
                     <nav>
-                        <Link 
-                            to="/login" 
-                            className="text-blue-600 font-bold hover:text-blue-800 transition-colors px-4 py-2"
-                        >
-                            Já tenho conta
-                        </Link>
-
+                        {/* Oculta o botão de Login se o backend estiver fora */}
+                        {isBackendOnline && (
+                            <Link
+                                to="/login"
+                                className="text-blue-600 font-bold hover:text-blue-800 transition-colors px-4 py-2"
+                            >
+                                Já tenho conta
+                            </Link>
+                        )}
                     </nav>
                 </div>
             </header>
 
-            {/* HERO SECTION (Com fundo de mapa) */}
-            {/* 👇 1. Adicionamos bg-cover e bg-center, e inserimos a imagem via style */}
-            <section 
+            {/* HERO SECTION */}
+            <section
                 className="relative text-white py-20 px-5 text-center overflow-hidden bg-cover bg-center"
                 style={{ backgroundImage: "url('/paraFundo.png')" }}
             >
-                {/* 👇 2. Camada semitransparente azul (Overlay) para dar contraste no texto */}
                 <div className="absolute inset-0 bg-blue-900/85"></div>
 
                 <div className="max-w-3xl mx-auto relative z-10 flex flex-col items-center gap-6">
@@ -45,26 +69,44 @@ export default function LandingPage() {
                         Leia etiquetas com a câmera do celular, calcule a melhor rota em segundos e termine o seu dia de trabalho até 2 horas mais cedo.
                     </p>
                     
-                    <div className="mt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
-                        <Link 
-                            to="/cadastro" 
-                            className="bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg py-4 px-8 rounded-full shadow-xl hover:scale-105 transition-all transform w-full sm:w-auto"
-                        >
-                            Testar 7 Dias Grátis
-                        </Link>
+                    {/* 👇 RENDERIZAÇÃO CONDICIONAL DOS BOTÕES PRINCIPAIS */}
+                    {isBackendOnline ? (
+                        <div className="mt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
+                            <Link
+                                to="/cadastro"
+                                className="bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg py-4 px-8 rounded-full shadow-xl hover:scale-105 transition-all transform w-full sm:w-auto"
+                            >
+                                Testar 7 Dias Grátis
+                            </Link>
 
-                        <Link 
-                            to="/apresentacao" 
-                            className="bg-white/20 hover:bg-white/30 border border-white/50 text-white font-bold text-lg py-4 px-8 rounded-full shadow-lg transition-all transform w-full sm:w-auto backdrop-blur-sm"
-                        >
-                            Como Funciona?
-                        </Link>
-                    </div>
+                            <Link
+                                to="/apresentacao"
+                                className="bg-white/20 hover:bg-white/30 border border-white/50 text-white font-bold text-lg py-4 px-8 rounded-full shadow-lg transition-all transform w-full sm:w-auto backdrop-blur-sm"
+                            >
+                                Como Funciona?
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="mt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
+                            <a
+                                href={linkWhats}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg py-4 px-8 rounded-full shadow-xl hover:scale-105 transition-all transform w-full sm:w-auto flex items-center justify-center gap-3"
+                            >
+                                {/* Ícone do WhatsApp */}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c-.003 1.396.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c.003-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                                </svg>
+                                Solicitar Acesso pelo WhatsApp
+                            </a>
+                        </div>
+                    )}
                     <p className="text-sm text-blue-200 mt-2 font-medium drop-shadow">Sem compromisso. Cancele quando quiser.</p>
                 </div>
             </section>
 
-            {/* FEATURES (Por que assinar?) */}
+            {/* FEATURES (Mantido inalterado pois não depende de API) */}
             <section className="py-20 px-5 bg-white">
                 <div className="max-w-6xl mx-auto text-center mb-16">
                     <h2 className="text-3xl font-extrabold text-gray-900">Tudo que você precisa em um só App</h2>
@@ -108,41 +150,70 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* PREÇO (Transparente e Direto) */}
+            {/* PREÇO (Gerado dinamicamente ou Fallback para WhatsApp) */}
             <section className="py-20 px-5 bg-blue-50">
-                <div className="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-blue-500 relative transform hover:-translate-y-1 transition-transform">
-                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-green-400"></div>
-                    <div className="p-8 text-center">
-                        <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Acesso Ilimitado</h3>
-                        <p className="text-gray-500 text-sm mb-6">Pague menos de R$ 1 por dia para ter paz.</p>
-                        
-                        <div className="flex justify-center items-baseline mb-6">
-                            <span className="text-4xl font-extrabold text-gray-900">R$ 29,90</span>
-                            <span className="text-gray-500 font-medium ml-1">/mês</span>
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-center gap-6 flex-wrap">
+                    
+                    {!isBackendOnline ? (
+                        // MODO FALLBACK (BACKEND OFF)
+                        <div className="max-w-md w-full mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-green-500 relative transform hover:-translate-y-1 transition-transform">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
+                            <div className="p-8 text-center">
+                                <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Acesso Antecipado VIP</h3>
+                                <p className="text-gray-500 text-sm mb-8">Estamos com vagas abertas para os primeiros testadores. Entre em contato para garantir a sua.</p>
+                                
+                                <a
+                                    href={linkWhats}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c-.003 1.396.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c.003-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                                    </svg>
+                                    Consultar Condições no WhatsApp
+                                </a>
+                            </div>
                         </div>
-                        
-                        <ul className="text-left flex flex-col gap-3 mb-8">
-                            <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                                <span className="text-green-500">✓</span> Rotas otimizadas infinitas
-                            </li>
-                            <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                                <span className="text-green-500">✓</span> Leitura de etiquetas com IA
-                            </li>
-                            <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                                <span className="text-green-500">✓</span> Modo App de celular (PWA)
-                            </li>
-                            <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                                <span className="text-green-500">✓</span> Suporte técnico direto
-                            </li>
-                        </ul>
-                        
-                        <Link 
-                            to="/login" 
-                            className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors"
-                        >
-                            Começar Meus 7 Dias Grátis
-                        </Link>
-                    </div>
+                    ) : planos.length === 0 ? (
+                        // MODO CARREGANDO (BACKEND ON, MAS ESPERANDO O FETCH)
+                        <p className="text-center text-gray-500">Carregando planos disponíveis...</p>
+                    ) : (
+                        // MODO NORMAL (API RETORNOU OS PLANOS)
+                        planos.map(p => (
+                            <div key={p.id} className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-blue-500 relative transform hover:-translate-y-1 transition-transform">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-green-400"></div>
+                                <div className="p-8 text-center flex flex-col h-full">
+                                    <h3 className="text-2xl font-extrabold text-gray-900 mb-1">{p.nome}</h3>
+                                    <p className="text-gray-500 text-sm mb-6">{p.descricao}</p>
+                                    
+                                    <div className="flex justify-center items-baseline mb-6">
+                                        <span className="text-4xl font-extrabold text-gray-900">R$ {p.valor.toFixed(2).replace('.', ',')}</span>
+                                        <span className="text-gray-500 font-medium ml-1">/mês</span>
+                                    </div>
+                                    
+                                    <ul className="text-left flex flex-col gap-3 mb-8 flex-1">
+                                        <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                            <span className="text-green-500">✓</span> Rotas otimizadas infinitas
+                                        </li>
+                                        <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                            <span className="text-green-500">✓</span> Leitura de etiquetas com IA
+                                        </li>
+                                        <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                            <span className="text-green-500">✓</span> Modo App de celular (PWA)
+                                        </li>
+                                    </ul>
+                                    
+                                    <Link
+                                        to="/login"
+                                        className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors mt-auto"
+                                    >
+                                        Assinar {p.nome}
+                                    </Link>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </section>
 
@@ -150,18 +221,17 @@ export default function LandingPage() {
             <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-auto">
                 <div className="max-w-6xl mx-auto px-5 flex flex-col md:flex-row justify-between items-center gap-4">
                     
-                    <p>&copy; {new Date().getFullYear()} Roteiriza. Todos os direitos reservados.</p>
+                    <p>&copy; {new Date().getFullYear()} Routriz. Todos os direitos reservados.</p>
                     
                     <div className="flex items-center gap-6">
-                        {/* Seu link pessoal com ícone de código */}
-                        <a 
-                            href="https://www.otaviano.dev.br/" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                        <a
+                            href="https://www.otaviano.dev.br/"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors font-medium"
                             title="Desenvolvido por Otaviano"
                         >
-                            <img src="/icoja.png" alt="Ícone do Desenvolvedor" />
+                            <img src="/icoja.png" alt="Ícone do Desenvolvedor" className="h-5 w-auto" />
                             <span className="hidden sm:inline">otaviano.dev.br</span>
                         </a>
 
@@ -170,7 +240,6 @@ export default function LandingPage() {
                             <a href="#" className="hover:text-white transition-colors">Privacidade</a>
                         </div>
                     </div>
-
                 </div>
             </footer>
         </div>
