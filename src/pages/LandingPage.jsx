@@ -188,8 +188,13 @@ export default function LandingPage() {
                                     <p className="text-gray-500 text-sm mb-6">{p.descricao}</p>
                                     
                                     <div className="flex justify-center items-baseline mb-6">
-                                        <span className="text-4xl font-extrabold text-gray-900">R$ {p.valor.toFixed(2).replace('.', ',')}</span>
-                                        <span className="text-gray-500 font-medium ml-1">/mês</span>
+                                            <span className="text-4xl font-extrabold text-gray-900">
+                                                R$ {p.valor.toFixed(2).replace('.', ',')}
+                                            </span>
+                                            {/* Se o nome do plano tiver "Anual", ele mostra "/ano". Caso contrário, mostra "/mês" */}
+                                            <span className="text-gray-500 font-medium ml-1">
+                                                {p.nome.toLowerCase().includes('anual') ? '/ano' : '/mês'}
+                                            </span>
                                     </div>
                                     
                                     <ul className="text-left flex flex-col gap-3 mb-8 flex-1">
