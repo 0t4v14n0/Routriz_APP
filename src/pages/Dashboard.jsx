@@ -8,7 +8,7 @@ import { api } from '../services/api';
 import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.MAPBOX_TOKEN;
 
 // Função matemática para forçar o mapa a "olhar" para o próximo pacote
 const calcularAngulo = (lat1, lng1, lat2, lng2) => {
