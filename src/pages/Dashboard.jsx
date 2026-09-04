@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import React, { useState, useContext, useRef, useEffect } from 'react';
+import React, { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { api } from '../services/api';
@@ -7,25 +7,22 @@ import { api } from '../services/api';
 // Importações do Mapa
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+// 👇 1. Adicionamos o useMapEvents aqui na importação
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
-
-// Corrigindo o ícone padrão do Leaflet no React (Usando um ícone externo bonitinho)
 const iconePinoMapeado = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png', // Ícone de pino azul
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png',
     iconSize: [35, 35],
     iconAnchor: [17, 35],
     popupAnchor: [0, -35]
 });
 
-// Criador Dinâmico de Ícones (Gera bolinhas com números)
 const criarIconeNumerado = (numeroDaRota) => {
-    // Se tiver número, fica azul. Se não tiver (pendente), fica cinza com uma caixa.
     const texto = numeroDaRota ? numeroDaRota : '📦';
-    const corFundo = numeroDaRota ? '#2563EB' : '#6B7280'; // Azul ou Cinza
+    const corFundo = numeroDaRota ? '#2563EB' : '#6B7280';
 
     return new L.divIcon({
-        className: 'custom-pin', // Remove os estilos padrão do Leaflet
+        className: 'custom-pin',
         html: `<div style="
             background-color: ${corFundo};
             color: white;
@@ -44,16 +41,16 @@ const criarIconeNumerado = (numeroDaRota) => {
             ${texto}
         </div>`,
         iconSize: [32, 32],
-        iconAnchor: [16, 16], // Fica exatamente centralizado na rua
-        popupAnchor: [0, -16] // Balãozinho abre um pouco acima da bolinha
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
     });
 };
 
 const iconeEntregador = new L.Icon({
-    iconUrl: '/RoutrizICO.ico', 
-    iconSize: [32, 32],      // Tamanho da imagem na tela [largura, altura]
-    iconAnchor: [16, 32],    // A "ponta" do ícone que vai tocar exatamente na rua
-    popupAnchor: [0, -32]    // Distância para o balãozinho "Você está aqui!" não cobrir a imagem
+    iconUrl: '/RoutrizICO.ico',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
 });
 
 export default function Dashboard() {
@@ -71,6 +68,9 @@ export default function Dashboard() {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const [modalEntregasAberto, setModalEntregasAberto] = useState(false);
+    
+    // 👇 2. Novo estado para controlar se o mapa está solto ou seguindo a rota
+    const [autoCentralizar, setAutoCentralizar] = useState(true);
 
     const [rotaGeoJson, setRotaGeoJson] = useState(() => {
         const rotaSalva = localStorage.getItem('rota_cache');
@@ -78,21 +78,16 @@ export default function Dashboard() {
     });    
     const [carregandoRota, setCarregandoRota] = useState(false);
 
-    // =========================================================================
-    // 🚨 VARIÁVEIS MOVIDAS PARA O TOPO (Antes dos useEffects!)
-    // =========================================================================
     const assinatura = usuario?.dataAssinatura;
     const diasRestantes = assinatura?.dataVencimento;
     const isTrial = assinatura?.status === 'TRIAL';
 
-    const isBloqueado = !assinatura || 
-                        assinatura.status === 'INATIVA' || 
-                        assinatura.status === 'PENDENTE' || 
-                        assinatura.status === 'VENCIDA' || 
+    const isBloqueado = !assinatura ||
+                        assinatura.status === 'INATIVA' ||
+                        assinatura.status === 'PENDENTE' ||
+                        assinatura.status === 'VENCIDA' ||
                         assinatura.status === 'EXPIRADO';
-    // =========================================================================
 
-    // Função para Buscar as entregas ativas no Backend
     const carregarEntregas = async () => {
         try {
             const response = await api.get('/api/entregador/encomendas/minhas-ativas');
@@ -102,7 +97,6 @@ export default function Dashboard() {
         }
     };
 
-    // Buscar entregas assim que a página carregar (SE NÃO ESTIVER BLOQUEADO)
     useEffect(() => {
         if (!isBloqueado) {
             carregarEntregas();
@@ -116,7 +110,6 @@ export default function Dashboard() {
         navigate('/login', { replace: true });
     };
 
-    // Enviar Lote
     const handleCadastrarLote = async (e) => {
         e.preventDefault();
         setCarregandoLote(true);
@@ -125,7 +118,8 @@ export default function Dashboard() {
             alert(`Sucesso! ${response.data.length} pacotes processados.`);
             setTextoLote('');
             setModalLoteAberto(false);
-            carregarEntregas(); // Atualiza o mapa na hora
+            setAutoCentralizar(true); // Foca nos pacotes novos
+            carregarEntregas();
         } catch (error) {
             alert('Erro ao processar lote. Verifique o formato.');
         } finally {
@@ -133,7 +127,6 @@ export default function Dashboard() {
         }
     };
 
-    // Função para Confirmar a Entrega
     const finalizarEntrega = (idPacote) => {
         const confirmar = window.confirm("Confirmar a entrega deste pacote?");
         if (!confirmar) return;
@@ -154,9 +147,10 @@ export default function Dashboard() {
                 });
 
                 alert("Entrega confirmada! A Rota será recalculada.");
-                await carregarEntregas(); 
-                calcularRotaOtimizada(); 
-                setModalEntregasAberto(false); 
+                setAutoCentralizar(true); // Foca no próximo destino
+                await carregarEntregas();
+                calcularRotaOtimizada();
+                setModalEntregasAberto(false);
                 
             } catch (error) {
                 console.error("Erro ao finalizar entrega:", error);
@@ -167,7 +161,6 @@ export default function Dashboard() {
         });
     };
 
-    // Ligar o GPS em tempo real (SE NÃO ESTIVER BLOQUEADO)
     useEffect(() => {
         if (!navigator.geolocation || isBloqueado) return;
 
@@ -182,21 +175,19 @@ export default function Dashboard() {
         return () => navigator.geolocation.clearWatch(radar);
     }, [isBloqueado]);
 
-    // Função para remover um pacote
     const removerPacote = async (idPacote) => {
         const confirmar = window.confirm("Tem certeza que deseja remover este pacote da sua rota?");
         if (!confirmar) return;
 
         try {
             await api.delete(`/api/entregador/encomendas/${idPacote}`);
-            carregarEntregas(); 
+            carregarEntregas();
         } catch (error) {
             alert("Erro ao remover pacote.");
             console.error(error);
         }
     };
 
-    // Função para chamar o OSRM e desenhar a rota
     const calcularRotaOtimizada = () => {
         if (!navigator.geolocation) {
             alert("Seu navegador não suporta GPS.");
@@ -210,14 +201,13 @@ export default function Dashboard() {
             const lng = pos.coords.longitude;
 
             try {
-                const response = await api.post(`/api/entregador/rotas/otimizar?latitudeAtual=${lat}&longitudeAtual=${lng}`)
-                    .then((response) => {
-                        const geoJsonObj = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-                        setRotaGeoJson(geoJsonObj);
-                        localStorage.setItem('rota_cache', JSON.stringify(geoJsonObj)); 
-                        carregarEntregas(); 
-                        alert("Rota calculada com sucesso!");
-                    })
+                const response = await api.post(`/api/entregador/rotas/otimizar?latitudeAtual=${lat}&longitudeAtual=${lng}`);
+                const geoJsonObj = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                setRotaGeoJson(geoJsonObj);
+                localStorage.setItem('rota_cache', JSON.stringify(geoJsonObj));
+                setAutoCentralizar(true); // Foca na nova rota gerada
+                carregarEntregas();
+                alert("Rota calculada com sucesso!");
             } catch (error) {
                 console.error("Erro ao otimizar:", error);
                 alert(error.response?.data?.message || "Erro ao calcular a rota. Você tem pacotes pendentes?");
@@ -230,12 +220,11 @@ export default function Dashboard() {
         });
     };
 
-    // Iniciar Câmera
     const iniciarCamera = async () => {
         setModalCameraAberto(true);
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' } 
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
             });
             streamRef.current = stream;
             if (videoRef.current) {
@@ -247,7 +236,6 @@ export default function Dashboard() {
         }
     };
 
-    // Fechar Câmera
     const fecharCamera = () => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
@@ -255,7 +243,6 @@ export default function Dashboard() {
         setModalCameraAberto(false);
     };
 
-    // Capturar Foto e Enviar IA
     const capturarEEnviarEtiqueta = async () => {
         if (!videoRef.current) return;
         setCarregandoCamera(true);
@@ -276,7 +263,8 @@ export default function Dashboard() {
             });
             alert(response.data);
             fecharCamera();
-            carregarEntregas(); 
+            setAutoCentralizar(true); // Foca no mapa novamente
+            carregarEntregas();
         } catch (error) {
             alert('Erro ao ler a etiqueta com a IA.');
         } finally {
@@ -284,40 +272,39 @@ export default function Dashboard() {
         }
     };
 
-    function AtualizadorDeCamera({ centro, entregas }) {
-        const map = useMap(); // Acessa a instância do mapa do Leaflet
+    // 👇 3. O CORAÇÃO DA MÁGICA: O Controlador do Mapa agora escuta o usuário
+    function ControladorDoMapa({ centro, entregas, autoCentralizar, setAutoCentralizar }) {
+        const map = useMap();
+
+        // Se o motorista der zoom ou mexer no mapa, nós desativamos a auto-centralização (Modo Livre)
+        useMapEvents({
+            dragstart: () => setAutoCentralizar(false),
+            zoomstart: () => setAutoCentralizar(false),
+        });
 
         useEffect(() => {
-            // Se houver entregas, ajusta o mapa para mostrar todas na tela
-            if (entregas && entregas.length > 0) {
-                // Cria os "limites" (bounds) baseados em todas as coordenadas das entregas
-                const bounds = L.latLngBounds(entregas.map(enc => [enc.latitude, enc.longitude]));
-                
-                // Opcional: Adicionar a posição atual do entregador se disponível
-                // (Assumindo que você passaria gpsAoVivo como prop também)
+            // Se o modo livre estiver ativo, ignoramos qualquer atualização de GPS ou dados
+            if (!autoCentralizar) return;
 
-                // Faz o mapa dar um "zoom out/in" suave para enquadrar todos os pontos
-                map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 }); 
+            if (entregas && entregas.length > 0) {
+                const bounds = L.latLngBounds(entregas.map(enc => [enc.latitude, enc.longitude]));
+                map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
             } else if (centro) {
-                // Fallback para centralizar se não houver bounds
                 map.flyTo(centro, 14, { duration: 1.5 });
             }
-        }, [centro, entregas, map]); // Re-executa sempre que 'entregas' ou 'centro' mudarem
+        }, [centro, entregas, map, autoCentralizar]);
 
-        return null; // Não renderiza nada visualmente
+        return null;
     }
 
     const limparRota = () => {
         const confirmar = window.confirm("Deseja apagar o traçado da rota atual do mapa?");
         if (confirmar) {
-            setRotaGeoJson(null); // Tira a linha do mapa
-            localStorage.removeItem('rota_cache'); // Apaga do cache para não voltar no F5
+            setRotaGeoJson(null);
+            localStorage.removeItem('rota_cache');
         }
     };
 
-    // =========================================================================
-    // TELA DE BLOQUEIO SE A ASSINATURA ESTIVER PENDENTE, VENCIDA OU INATIVA
-    // =========================================================================
     if (usuario && isBloqueado) {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -329,18 +316,18 @@ export default function Dashboard() {
                     </div>
                     <h2 className="text-2xl font-extrabold text-gray-800 mb-2">Acesso Bloqueado</h2>
                     <p className="text-gray-500 mb-6 font-medium text-sm">
-                        Sua assinatura {assinatura?.status === 'PENDENTE' ? 'está aguardando pagamento' : 'expirou ou foi cancelada'}. 
+                        Sua assinatura {assinatura?.status === 'PENDENTE' ? 'está aguardando pagamento' : 'expirou ou foi cancelada'}.
                         Para continuar usando o app, assine o plano PRO.
                     </p>
                     
-                    <button 
+                    <button
                         onClick={() => navigate('/assinar')}
                         className="bg-routriz-blue w-full hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all cursor-pointer"
                     >
                         Assinar Routriz PRO
                     </button>
                     
-                    <button 
+                    <button
                         onClick={handleLogout}
                         className="mt-4 text-gray-400 font-bold text-sm hover:text-gray-600 underline cursor-pointer"
                     >
@@ -350,20 +337,20 @@ export default function Dashboard() {
             </div>
         );
     }
-    // =========================================================================
 
-    // Posição padrão do mapa (Se não tiver entregas, centraliza em Belo Jardim)
-    const centroDoMapa = entregas.length > 0 
-        ? [entregas[0].latitude, entregas[0].longitude] 
-        : [-8.337, -36.425];
+    // 👇 4. useMemo impede que o array recrie na memória e bug o mapa a cada renderização do React
+    const centroDoMapa = useMemo(() => {
+        return entregas.length > 0
+            ? [entregas[0].latitude, entregas[0].longitude]
+            : [-8.337, -36.425];
+    }, [entregas]);
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative">
             
-            {/* CABEÇALHO DO APP */}
             <header className="bg-routriz-blue text-white p-4 flex justify-between items-center shadow-md rounded-b-2xl relative z-40">
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => setMenuAberto(!menuAberto)}
                         className="text-white focus:outline-none cursor-pointer p-1 rounded-lg hover:bg-blue-700 transition-colors"
                     >
@@ -373,15 +360,14 @@ export default function Dashboard() {
                     </button>
                     <img src="/routrizNAV.png" alt="Routriz Logo" className="h-7 w-auto object-contain" />
                 </div>
-                <button 
-                    onClick={handleLogout} 
+                <button
+                    onClick={handleLogout}
                     className="bg-routriz-red hover:bg-opacity-80 text-white text-sm font-bold py-1.5 px-4 rounded-full shadow transition-all cursor-pointer"
                 >
                     Sair
                 </button>
             </header>
 
-            {/* MENU LATERAL (DRAWER) */}
             {menuAberto && (
                 <div className="absolute top-16 left-0 w-72 bg-white shadow-2xl z-50 rounded-r-2xl border-r border-gray-200 p-5 flex flex-col gap-4 animate-fadeIn">
                     <div className="border-b pb-3">
@@ -389,31 +375,31 @@ export default function Dashboard() {
                         <p className="text-xs text-gray-500">Gerencie suas rotas e pacotes</p>
                     </div>
 
-                    <button 
+                    <button
                         onClick={() => { setModalLoteAberto(true); setMenuAberto(false); }}
                         className="text-left font-semibold text-gray-700 hover:text-routriz-blue py-2 px-3 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer"
                     >
                         📋 Cadastrar Lote (Copia & Cola)
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => { iniciarCamera(); setMenuAberto(false); }}
                         className="text-left font-semibold text-gray-700 hover:text-routriz-blue py-2 px-3 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer"
                     >
                         📷 Ler Etiqueta por Câmera
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => { setModalEntregasAberto(true); setMenuAberto(false); }}
                         className="text-left font-semibold text-gray-700 hover:text-routriz-blue py-2 px-3 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer"
                     >
-                        📦 Minhas Entregas do Dia 
+                        📦 Minhas Entregas do Dia
                         <span className="ml-auto bg-routriz-blue text-white text-xs px-2 py-1 rounded-full">
                             {entregas.length}
                         </span>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => { navigate('/assinar'); setMenuAberto(false); }}
                         className="text-left font-semibold text-gray-700 hover:text-routriz-blue py-2 px-3 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer mt-4 border-t pt-4"
                     >
@@ -422,7 +408,6 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* CORPO DO APP */}
             <main className="flex-1 p-5 flex flex-col gap-5 max-w-2xl w-full mx-auto relative z-0">
                 
                 {isTrial && (
@@ -435,7 +420,7 @@ export default function Dashboard() {
                                 Restam <span className="font-bold text-amber-600">{diasRestantes} dias</span> para o fim do seu trial.
                             </p>
                         </div>
-                        <button 
+                        <button
                             onClick={() => navigate('/assinar')}
                             className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-all cursor-pointer"
                         >
@@ -453,64 +438,77 @@ export default function Dashboard() {
                     </p>
                 </div>
 
-                {/* ÁREA DO MAPA (REACT-LEAFLET) */}
                 <div className="flex-1 bg-white rounded-2xl border border-gray-200 overflow-hidden min-h-[500px] shadow-sm relative z-0">
-                    <MapContainer 
-                        center={centroDoMapa} 
-                        zoom={14} 
-                        style={{ height: '500px', width: '100%', zIndex: 0 }}    
+                    {/* 👇 5. BOTÃO FLUTUANTE DE CENTRALIZAR (Só aparece no Modo Livre) */}
+                    {!autoCentralizar && (
+                        <button
+                            onClick={() => setAutoCentralizar(true)}
+                            className="absolute bottom-6 right-6 z-[400] bg-routriz-blue text-white font-bold py-3 px-5 rounded-full shadow-xl hover:scale-105 transition-all cursor-pointer border-2 border-white flex items-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                            </svg>
+                            Centralizar
+                        </button>
+                    )}
 
+                    <MapContainer
+                        center={centroDoMapa}
+                        zoom={14}
+                        style={{ height: '500px', width: '100%', zIndex: 0 }}    
                     >
                         <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution='&copy; OpenStreetMap'
                         />
 
-                        {/* 👇 INSERINDO O CONTROLADOR DE CÂMERA AQUI 👇 */}
-                        <AtualizadorDeCamera centro={centroDoMapa} entregas={entregas} />
+                        {/* 👇 Trocamos o AtualizadorDeCamera antigo pelo Controlador novo */}
+                        <ControladorDoMapa 
+                            centro={centroDoMapa} 
+                            entregas={entregas} 
+                            autoCentralizar={autoCentralizar}
+                            setAutoCentralizar={setAutoCentralizar}
+                        />
 
                         {gpsAoVivo && (
-                            <Marker 
-                                position={gpsAoVivo} 
-                                icon={iconeEntregador} 
+                            <Marker
+                                position={gpsAoVivo}
+                                icon={iconeEntregador}
                             >
                                 <Popup>Você está aqui!</Popup>
                             </Marker>
                         )}
 
-                        {/* RENDERIZAÇÃO INTELIGENTE DA ROTA (Próximo destino vs Restante) */}
                         {rotaGeoJson && rotaGeoJson.type === "FeatureCollection" ? (
                             rotaGeoJson.features.map((feature, index) => (
-                                <GeoJSON 
-                                    // A key com entregas.length garante que o Leaflet redesenhe a linha corretamente ao dar baixa num pacote
-                                    key={`rota-${index}-${entregas.length}`} 
-                                    data={feature} 
-                                    style={{ 
-                                        // index === 0 é a rota do motorista até a PRIMEIRA entrega pendente
-                                        color: index === 0 ? '#1D4ED8' : '#93C5FD', // Azul forte vs Azul claro
-                                        weight: index === 0 ? 6 : 4, // Linha mais grossa no destino atual
+                                <GeoJSON
+                                    key={`rota-${index}-${entregas.length}`}
+                                    data={feature}
+                                    style={{
+                                        color: index === 0 ? '#1D4ED8' : '#93C5FD',
+                                        weight: index === 0 ? 6 : 4,
                                         opacity: index === 0 ? 1 : 0.7,
-                                        dashArray: index === 0 ? '' : '10, 10', // Efeito tracejado (Waze-style) nos próximos destinos!
+                                        dashArray: index === 0 ? '' : '10, 10',
                                         lineCap: 'round',
                                         lineJoin: 'round'
-                                    }} 
+                                    }}
                                 />
                             ))
                         ) : (
-                            // Fallback de segurança: se o backend mandar tudo como uma linha única em vez de trechos separados
                             rotaGeoJson && (
-                                <GeoJSON 
+                                <GeoJSON
                                     key={`rota-unica-${entregas.length}`}
-                                    data={rotaGeoJson} 
-                                    style={{ color: '#1D4ED8', weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round' }} 
+                                    data={rotaGeoJson}
+                                    style={{ color: '#1D4ED8', weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round' }}
                                 />
                             )
                         )}
                         
                     {entregas.map((enc) => (
-                        <Marker 
-                            key={enc.id} 
-                            position={[enc.latitude, enc.longitude]} 
+                        <Marker
+                            key={enc.id}
+                            position={[enc.latitude, enc.longitude]}
                             icon={criarIconeNumerado(enc.ordemRota)}
                         >
                             <Popup>
@@ -522,7 +520,7 @@ export default function Dashboard() {
                                         <p className="text-gray-600 leading-tight">{enc.textoEndereco}</p>
                                     </div>
                                     
-                                    <button 
+                                    <button
                                         onClick={() => finalizarEntrega(enc.id)}
                                         className="bg-green-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-green-600 w-full text-center shadow-sm cursor-pointer"
                                     >
@@ -536,16 +534,16 @@ export default function Dashboard() {
                 </div>
 
                 {rotaGeoJson && (
-                        <button 
-                            onClick={limparRota} 
+                        <button
+                            onClick={limparRota}
                             className="bg-white border-2 border-red-500 text-red-500 font-bold text-sm py-3 rounded-xl shadow-sm hover:bg-red-50 transition-all w-full cursor-pointer"
                         >
                             🗑️ Limpar Traçado da Rota
                         </button>
                 )}
 
-                <button 
-                    onClick={calcularRotaOtimizada} 
+                <button
+                    onClick={calcularRotaOtimizada}
                     disabled={carregandoRota}
                     className="bg-routriz-blue text-white font-extrabold text-lg py-4 rounded-full shadow-lg hover:bg-opacity-90 transition-all w-full mt-auto mb-2 cursor-pointer relative z-10 disabled:bg-gray-400"
                 >
@@ -598,10 +596,10 @@ export default function Dashboard() {
                         <h3 className="text-lg font-bold text-gray-800">Enquadre a Etiqueta</h3>
                         
                         <div className="w-full bg-black rounded-xl overflow-hidden aspect-[3/4] relative flex items-center justify-center">
-                            <video 
-                                ref={videoRef} 
-                                autoPlay 
-                                playsInline 
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
                                 className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-8 border-2 border-dashed border-white/70 rounded-xl pointer-events-none flex flex-col items-center justify-center">
@@ -656,7 +654,7 @@ export default function Dashboard() {
                                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{enc.status}</p>
                                         <p className="text-sm font-semibold text-gray-700 pr-8">{enc.textoEndereco}</p>
                                         
-                                        <button 
+                                        <button
                                             onClick={() => removerPacote(enc.id)}
                                             className="mt-2 text-xs font-bold text-red-500 self-end hover:underline cursor-pointer"
                                         >
