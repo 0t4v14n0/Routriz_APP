@@ -50,7 +50,7 @@ export default function Dashboard() {
     const [viewState, setViewState] = useState({
         latitude: -8.337,
         longitude: -36.425,
-        zoom: 14,
+        zoom: 30,
         pitch: 65, // Ângulo para efeito 3D (Waze)
         bearing: 0
     });
