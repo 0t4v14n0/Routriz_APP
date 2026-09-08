@@ -1,35 +1,30 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { api } from '../services/api';
 
 export default function AssinaturaPage() {
     const navigate = useNavigate();
-    const { usuario, setUsuario } = useContext(AuthContext);
+    const { usuario } = useContext(AuthContext);
 
     const [planos, setPlanos] = useState([]);
     const [planoSelecionado, setPlanoSelecionado] = useState('');
     const [loading, setLoading] = useState(false);
-    const [scriptCarregado, setScriptCarregado] = useState(false);
 
     const [formData, setFormData] = useState({
         cpf: '', rua: '', numero: '', bairro: '', cep: '', cidade: '', estado: '',
         numeroCartao: '', cvv: '', mesVencimento: '', anoVencimento: '', nomeCartao: ''
     });
 
-    // Verifica se o usuário já tem uma assinatura ativa ou trial
     const assinatura = usuario?.dataAssinatura;
     const temAssinaturaAtiva = assinatura?.status === 'ATIVA' || assinatura?.status === 'TRIAL';
 
-    // =======================================================
-    // CARREGA PLANOS E O SCRIPT DE TOKENIZAÇÃO DO ASAAS
-    // =======================================================
+    // Busca os planos do backend local
     useEffect(() => {
         if (temAssinaturaAtiva) return;
 
         const carregarPlanos = async () => {
             try {
-                // Rota pública que busca os planos do nosso banco local (criados pelo Initializer)
                 const response = await api.get('/api/public/planos');
                 setPlanos(response.data);
             } catch (error) {
@@ -37,104 +32,55 @@ export default function AssinaturaPage() {
             }
         };
         carregarPlanos();
-
-        // Injeção do script oficial do Asaas para tokenizar cartão de crédito com segurança
-        if (!document.getElementById('asaas-script')) {
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.id = 'asaas-script';
-            // Use o link de sandbox ou produção conforme o seu ambiente
-            script.src = 'https://sandbox.asaas.com/assets/js/asaas.min.js';
-            script.async = true;
-            script.onload = () => {
-                console.log("✅ Asaas.js carregado com sucesso!");
-                setScriptCarregado(true);
-            };
-            document.head.appendChild(script);
-        } else {
-            setScriptCarregado(true);
-        }
     }, [temAssinaturaAtiva]);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // =======================================================
-    // AÇÃO DE ASSINAR USANDO O TOKENIZADOR DO ASAAS
-    // =======================================================
+    // Envia os dados completos do formulário para o backend via HTTPS
     const handleAssinar = async (e) => {
         e.preventDefault();
-        if (!window.Asaas) {
-            alert("Aguarde um segundo, o sistema de pagamento está carregando...");
-            return;
-        }
-
         setLoading(true);
 
-        // Estrutura exigida pelo Asaas.js para gerar o Token de segurança do cartão
-        const creditCardData = {
-            holderName: formData.nomeCartao,
-            number: formData.numeroCartao.replace(/\D/g, ''),
-            expiryMonth: formData.mesVencimento,
-            expiryYear: formData.anoVencimento,
-            ccv: formData.cvv
-        };
+        try {
+            await api.post('/api/entregador/assinaturas/cartao', {
+                planoIdLocal: planoSelecionado,
+                cpf: formData.cpf,
+                nomeCartao: formData.nomeCartao,
+                numeroCartao: formData.numeroCartao.replace(/\D/g, ''),
+                mesVencimento: formData.mesVencimento,
+                anoVencimento: formData.anoVencimento,
+                cvv: formData.cvv,
+                rua: formData.rua,
+                numero: formData.numero,
+                bairro: formData.bairro,
+                cep: formData.cep.replace(/\D/g, ''),
+                cidade: formData.cidade,
+                estado: formData.estado
+            });
 
-        // O Asaas tokeniza o cartão no cliente para evitar tráfego de dados sensíveis no backend
-        window.Asaas.createCreditCardToken(creditCardData, async (response) => {
-            if (response.hasError) {
-                console.error("Erro ao tokenizar cartão no Asaas:", response.errors);
-                alert("Erro ao validar os dados do cartão. Verifique as informações.");
-                setLoading(false);
-                return;
-            }
-
-            const paymentToken = response.creditCardToken;
-            console.log("🔥 TOKEN DO CARTÃO GERADO NO ASAAS:", paymentToken);
-
-            try {
-                // Envia para o nosso backend Java que criamos anteriormente
-                await api.post('/api/entregador/assinaturas/cartao', {
-                    planoIdLocal: planoSelecionado,
-                    cpf: formData.cpf,
-                    paymentToken: paymentToken,
-                    rua: formData.rua,
-                    numero: formData.numero,
-                    bairro: formData.bairro,
-                    cep: formData.cep,
-                    cidade: formData.cidade,
-                    estado: formData.estado
-                });
-
-                alert("Assinatura realizada com sucesso!");
-                navigate('/dashboard');
-            } catch (err) {
-                console.error("Erro no Backend:", err);
-                alert("Erro ao processar assinatura no nosso servidor: " + (err.response?.data?.detalhe || err.message));
-            } finally {
-                setLoading(false);
-            }
-        });
+            alert("Assinatura realizada com sucesso!");
+            navigate('/dashboard');
+        } catch (err) {
+            console.error("Erro no Backend:", err);
+            alert("Erro ao processar assinatura: " + (err.response?.data?.detalhe || err.message));
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // =======================================================
-    // AÇÃO DE CANCELAR ASSINATURA
-    // =======================================================
     const handleCancelarAssinatura = async () => {
         const confirmar = window.confirm(
             "Tem certeza que deseja cancelar sua assinatura PRO? Você perderá acesso às rotas ilimitadas."
         );
-
         if (!confirmar) return;
 
         setLoading(true);
         try {
             await api.put('/api/entregador/assinaturas/cancelar');
-            
             alert("Sua assinatura foi cancelada com sucesso.");
             window.location.reload(); 
-            
         } catch (error) {
             console.error("Erro ao cancelar:", error);
             alert("Houve um problema ao cancelar a assinatura. Tente novamente.");
@@ -159,12 +105,9 @@ export default function AssinaturaPage() {
             </header>
 
             <main className="flex-1 p-5 max-w-lg w-full mx-auto mt-4">
-                
                 {temAssinaturaAtiva ? (
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-5 text-center">
-                        <div className="w-20 h-20 bg-blue-100 text-routriz-blue rounded-full flex items-center justify-center text-4xl mx-auto mb-2 shadow-inner">
-                            🚀
-                        </div>
+                        <div className="w-20 h-20 bg-blue-100 text-routriz-blue rounded-full flex items-center justify-center text-4xl mx-auto mb-2 shadow-inner">🚀</div>
                         <h2 className="text-2xl font-extrabold text-gray-800">Você é PRO!</h2>
                         <p className="text-gray-500 font-medium">Sua conta tem rotas ilimitadas liberadas.</p>
                         
@@ -172,7 +115,7 @@ export default function AssinaturaPage() {
                             <p className="text-sm text-gray-500 mb-1">Status atual:</p>
                             <p className="font-bold text-green-600 text-lg uppercase">{assinatura.status}</p>
                             <p className="text-sm text-gray-500 mt-3 mb-1">Renova / Vence em:</p>
-                            <p className="font-bold text-gray-800">{assinatura.dataVencimento} dias</p>
+                            <p className="font-bold text-gray-800">{assinatura.dataVencimento}</p>
                         </div>
 
                         <button 
@@ -182,22 +125,14 @@ export default function AssinaturaPage() {
                         >
                             {loading ? 'Processando cancelamento...' : 'Cancelar Assinatura'}
                         </button>
-                        <p className="text-xs text-gray-400 mt-2">
-                            Ao cancelar, suas futuras cobranças serão suspensas imediatamente.
-                        </p>
                     </div>
-
                 ) : (
-
                     <form onSubmit={handleAssinar} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-5">
-                        
-                        {/* ESCOLHA DO PLANO */}
+                        {/* 1. PLANO */}
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 mb-2">1. Escolha seu Plano</h3>
                             <div className="flex flex-col gap-3">
-                                {planos.length === 0 ? (
-                                    <p className="text-sm text-gray-500">Carregando planos...</p>
-                                ) : (
+                                {planos.length === 0 ? <p className="text-sm text-gray-500">Carregando planos...</p> : 
                                     planos.map(p => (
                                         <label key={p.id} className={`border p-4 rounded-xl cursor-pointer transition-all flex justify-between items-center ${planoSelecionado === p.id.toString() ? 'border-routriz-blue bg-blue-50 ring-2 ring-blue-200' : 'border-gray-300'}`}>
                                             <div className="flex items-center gap-3">
@@ -211,18 +146,14 @@ export default function AssinaturaPage() {
                                                     <p className="text-xs text-gray-500">{p.descricao}</p>
                                                 </div>
                                             </div>
-                                            <p className="font-extrabold text-routriz-blue">
-                                                R$ {p.valor.toFixed(2).replace('.', ',')}
-                                            </p>
+                                            <p className="font-extrabold text-routriz-blue">R$ {p.valor.toFixed(2).replace('.', ',')}</p>
                                         </label>
                                     ))
-                                )}
+                                }
                             </div>
                         </div>
-
                         <hr className="border-gray-100" />
-
-                        {/* DADOS DO CLIENTE */}
+                        {/* 2. DADOS DO CLIENTE */}
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 mb-3">2. Dados de Faturamento</h3>
                             <div className="flex flex-col gap-3">
@@ -241,16 +172,13 @@ export default function AssinaturaPage() {
                                 </div>
                             </div>
                         </div>
-
                         <hr className="border-gray-100" />
-
-                        {/* DADOS DO CARTÃO */}
+                        {/* 3. CARTÃO */}
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 mb-3">3. Cartão de Crédito</h3>
                             <div className="flex flex-col gap-3">
                                 <input type="text" name="nomeCartao" placeholder="Nome impresso no cartão" onChange={handleInputChange} required className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50 outline-none focus:border-routriz-blue" />
                                 <input type="text" name="numeroCartao" placeholder="Número do Cartão" onChange={handleInputChange} required className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50 outline-none focus:border-routriz-blue" />
-                                
                                 <div className="flex gap-2">
                                     <input type="text" name="mesVencimento" placeholder="Mês (Ex: 12)" maxLength="2" onChange={handleInputChange} required className="w-1/3 border border-gray-300 p-3 rounded-lg bg-gray-50 outline-none focus:border-routriz-blue text-center" />
                                     <input type="text" name="anoVencimento" placeholder="Ano (Ex: 2030)" maxLength="4" onChange={handleInputChange} required className="w-1/3 border border-gray-300 p-3 rounded-lg bg-gray-50 outline-none focus:border-routriz-blue text-center" />
@@ -258,18 +186,13 @@ export default function AssinaturaPage() {
                                 </div>
                             </div>
                         </div>
-
                         <button 
                             type="submit" 
-                            disabled={loading || !planoSelecionado || !scriptCarregado}
+                            disabled={loading || !planoSelecionado}
                             className="w-full bg-routriz-blue text-white p-4 rounded-xl font-extrabold mt-4 shadow-lg hover:bg-blue-700 transition-all cursor-pointer disabled:bg-gray-400"
                         >
-                            {!scriptCarregado ? 'Conectando Asaas...' : loading ? 'Processando Pagamento...' : 'Confirmar Assinatura'}
+                            {loading ? 'Processando Pagamento...' : 'Confirmar Assinatura'}
                         </button>
-                        
-                        <p className="text-xs text-center text-gray-400 font-medium flex items-center justify-center gap-1 mt-2">
-                            <span>🔒</span> Pagamento 100% seguro processado por Asaas
-                        </p>
                     </form>
                 )}
             </main>
