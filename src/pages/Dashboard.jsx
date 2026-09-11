@@ -261,19 +261,37 @@ export default function Dashboard() {
         setModalCameraAberto(false);
     };
 
-    const capturarEEnviarEtiqueta = async () => {
+const capturarEEnviarEtiqueta = async () => {
         if (!videoRef.current) return;
         setCarregandoCamera(true);
 
         const video = videoRef.current;
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        
+        // Pega as dimensões reais do vídeo que está vindo da câmera
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        
+        // A MÁGICA AQUI: Pega 90% da largura, mas APENAS 20% da altura (uma fatia fina!)
+        const cropWidth = videoWidth * 0.9;
+        const cropHeight = videoHeight * 0.2; 
+        const cropX = (videoWidth - cropWidth) / 2;
+        const cropY = (videoHeight - cropHeight) / 2;
+
+        canvas.width = cropWidth;
+        canvas.height = cropHeight;
         
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Desenha no canvas apenas a fatia fina central
+        ctx.drawImage(
+            video, 
+            cropX, cropY, cropWidth, cropHeight, 
+            0, 0, cropWidth, cropHeight          
+        );
 
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        // O Base64 agora vai ficar minúsculo, economizando muita internet!
+        const base64Image = canvas.toDataURL('image/jpeg', 0.9);
 
         try {
             const response = await api.post('/api/entregador/encomendas/camera', {
@@ -283,7 +301,7 @@ export default function Dashboard() {
             fecharCamera();
             carregarEntregas();
         } catch (error) {
-            alert('Erro ao ler a etiqueta com a IA.');
+            alert('Erro ao ler a etiqueta. Tente alinhar o texto na linha vermelha.');
         } finally {
             setCarregandoCamera(false);
         }
@@ -634,16 +652,43 @@ export default function Dashboard() {
             )}
 
             {/* MODAL DE CÂMERA */}
+{/* MODAL DE CÂMERA - ESTILO CÓDIGO DE BARRAS */}
             {modalCameraAberto && (
-                <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-4 z-50">
-                    <div className={`rounded-2xl max-w-md w-full p-4 shadow-2xl flex flex-col items-center gap-4 relative border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-transparent'}`}>
-                        <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Enquadre a Etiqueta</h3>
-                        <div className="w-full bg-black rounded-xl overflow-hidden aspect-[3/4] relative flex items-center justify-center border border-gray-600">
-                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <div className="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center p-4 z-50">
+                    <div className={`rounded-2xl max-w-md w-full p-5 shadow-2xl flex flex-col items-center gap-4 relative border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-transparent'}`}>
+                        
+                        <div className="text-center">
+                            <h3 className={`text-xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Ler Endereço</h3>
+                            <p className="text-xs text-gray-400 mt-1">Alinhe o endereço na linha vermelha</p>
                         </div>
-                        <div className="flex w-full gap-2">
-                            <button onClick={fecharCamera} className={`flex-1 py-3 font-bold rounded-xl ${isDarkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>Cancelar</button>
-                            <button onClick={capturarEEnviarEtiqueta} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500">Capturar</button>
+                        
+                        {/* Container achatado estilo Scanner (aspect-[5/2]) */}
+                        <div className="w-full bg-black rounded-xl overflow-hidden aspect-[5/2] relative flex items-center justify-center border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                            
+                            {/* Linha de Laser Animada */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-[95%] h-0.5 bg-red-500 shadow-[0_0_12px_rgba(255,0,0,1)] animate-pulse"></div>
+                            </div>
+
+                            {/* Mira nos cantos (Design Extra) */}
+                            <div className="absolute top-3 left-3 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-md"></div>
+                            <div className="absolute top-3 right-3 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-md"></div>
+                            <div className="absolute bottom-3 left-3 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-md"></div>
+                            <div className="absolute bottom-3 right-3 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-md"></div>
+                        </div>
+
+                        <div className="flex w-full gap-3 mt-2">
+                            <button onClick={fecharCamera} className={`flex-1 py-4 font-bold rounded-xl transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={capturarEEnviarEtiqueta} 
+                                disabled={carregandoCamera}
+                                className="flex-[2] py-4 bg-blue-600 text-white font-extrabold rounded-xl hover:bg-blue-500 disabled:bg-blue-400 shadow-lg transition-all"
+                            >
+                                {carregandoCamera ? 'Analisando...' : 'Capturar Endereço'}
+                            </button>
                         </div>
                     </div>
                 </div>
