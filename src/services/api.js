@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'https://www.api.routriz.com.br/', 
+    baseURL: 'https://api.routriz.com.br/', 
     headers: {
         'ngrok-skip-browser-warning': 'true', // Tem que ter isso!
         'Content-Type': 'application/json'
