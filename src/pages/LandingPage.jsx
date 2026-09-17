@@ -102,46 +102,63 @@ export default function LandingPage() {
 
             {/* FEATURES */}
             <section className="py-20 px-5 bg-white">
-                <div className="max-w-6xl mx-auto text-center mb-16">
+                <div className="max-w-7xl mx-auto text-center mb-16">
                     <h2 className="text-3xl font-extrabold text-gray-900">Tecnologia de ponta para a sua frota local</h2>
                     <p className="text-gray-500 mt-3 font-medium">Chega de sofrer com CEPs confusos e apps que não conhecem a nossa região.</p>
                 </div>
 
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* 👇 GRID ATUALIZADO PARA 4 COLUNAS EM TELAS GRANDES */}
+                <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    
                     {/* Card 1 */}
-                    <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
                         <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-5">
                             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-bold mb-2">Câmera com IA</h3>
+                        <h3 className="text-lg font-bold mb-2">Câmera com IA</h3>
                         <p className="text-gray-600 text-sm">Escaneie a etiqueta do Mercado Livre ou Shopee. Nossa inteligência extrai o endereço na hora.</p>
                     </div>
 
                     {/* Card 2 */}
-                    <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
                         <div className="w-14 h-14 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-5">
                             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-bold mb-2">Rota Mágica</h3>
+                        <h3 className="text-lg font-bold mb-2">Rota Mágica</h3>
                         <p className="text-gray-600 text-sm">Com um clique, o sistema organiza suas paradas para você não dar voltas desnecessárias pelo bairro.</p>
                     </div>
 
-                    {/* Card 3 - NOVO: Focado no OSRM local que configuramos */}
-                    <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+                    {/* Card 3 */}
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
                         <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-5">
                             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-bold mb-2">Mapeamento 100% PE</h3>
-                        <p className="text-gray-600 text-sm">Diferente de apps genéricos, nosso motor de rotas possui alta precisão desde Recife até as ruas do interior de Pernambuco.</p>
+                        <h3 className="text-lg font-bold mb-2">Mapeamento 100% PE</h3>
+                        <p className="text-gray-600 text-sm">Diferente de apps genéricos, nosso motor de rotas possui alta precisão desde Recife até o interior.</p>
                     </div>
+
+                    {/* Card 4 - NOVO: Inteligência Coletiva com Emoji de Cérebro */}
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow relative overflow-hidden">
+                        {/* Brilho sutil no fundo para destacar */}
+                        <div className="absolute -top-4 -right-4 w-20 h-20 bg-purple-200 rounded-full blur-2xl opacity-50"></div>
+                        
+                        <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-5 text-3xl shadow-sm z-10">
+                            🧠
+                        </div>
+                        <h3 className="text-lg font-bold mb-2 z-10">Inteligência Coletiva</h3>
+                        <p className="text-gray-600 text-sm z-10">
+                            Ao finalizar a entrega na porta do cliente, o sistema grava a coordenada. Na próxima vez, o GPS te leva com <strong className="text-purple-600">100% de precisão</strong>!
+                        </p>
+                    </div>
+
                 </div>
             </section>
 
@@ -196,7 +213,7 @@ export default function LandingPage() {
                                             <span className="text-green-500">✓</span> Leitura de etiquetas com IA
                                         </li>
                                         <li className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                                            <span className="text-green-500">✓</span> Modo App de celular (PWA)
+                                            <span className="text-green-500">✓</span> Inteligência de Mapa
                                         </li>
                                     </ul>
                                     
